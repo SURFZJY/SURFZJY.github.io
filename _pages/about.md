@@ -51,7 +51,9 @@ latest_posts:
   }
 </style>
 
-I am a researcher at TikTok in Sydney, Australia, working on multimodal large language models. I received my M.S. from the Institute of Automation, Chinese Academy of Sciences (CASIA) in 2020, then joined ByteDance AI Lab in Shanghai, where I worked from 2020 to 2024 before moving to TikTok Sydney in 2024.
+I am a researcher on the Foundation Model Team at TikTok in Sydney, Australia, where I work on foundation models for video content understanding, with a focus on improving visual perception and understanding. At TikTok, I have long been responsible for core multimodal capabilities such as multilingual OCR and video captioning, as well as multimodal LLMs for content understanding, including omni-modal (Omni) MLLMs. I have hands-on experience across the full model development pipeline, from pre-training and mid-training to post-training.
+
+I received my M.S. from the Institute of Automation, Chinese Academy of Sciences (CASIA) in 2020, then joined ByteDance AI Lab in Shanghai (2020–2024) before moving to TikTok Sydney in 2024.
 
 My research interests include:
 
