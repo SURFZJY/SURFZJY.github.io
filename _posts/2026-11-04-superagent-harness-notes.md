@@ -2,7 +2,7 @@
 layout: post
 title: "The Session Should Not Be the Product"
 date: 2026-11-04 18:00:00
-description: A reading of the DeepSeek Harness Super-agent essay, kept separate from the narrower public prototype, and what the design suggests for training multimodal agents.
+description: A reading of the public dsh-superagent prototype, and what its split between routing and execution suggests for training multimodal agents.
 tags:
   - agents
   - multi-agent
@@ -14,73 +14,72 @@ mermaid:
   enabled: true
 ---
 
-This is a reading, not a translation. Yujia Qiao and the DeepSeek Harness team wrote the architecture. I read it in Guo Qiang's full reprint, [面向工程实践的架构思路探讨：DeepSeek Super-agent 系统架构](https://guobug.github.io/posts/2026/11/01/deepseek-harness-super-agent-architecture/?lang=en), which says the text is reproduced without cuts or added commentary. The essay is an engineering argument, not a product description. The public code, [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype), is narrower: its README says it was adapted for publication, is not the internal system, and that some designs in the essay are future work. Below, the essay is the architecture and the repository is a prototype.
+I have been reading [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype) as a design, not as a product. The README is plain about the status: research code, not an official DeepSeek release, adapted for publication, and not identical to whatever runs internally. Some ideas around it are future work. What is in the tree is already enough to argue with. It is a proactive coding agent for one GitHub repository, with optional Feishu, that opens a work item, does the work in its own session and directory, and answers in the conversation where the request was made.
 
 ## What the harness is for
 
-A model with tools can finish a hard task with less step-by-step steering. The essay asks what breaks when that is a whole working day. Work is still a session, and sessions do not share context. The authors say a person can actively follow only about three to five. The ceiling on one task is the model. The ceiling on many tasks is attention.
+A model with tools can finish a hard task with less step-by-step steering. The harder problem is a whole working day. Work arrives as events, not as a person sitting in one chat, and those events do not share a context just because they share a human. If every event lands in the same session, unrelated tasks collide and the loop blocks. If every event opens a fresh session, nothing remembers the last decision and several sessions answer at once. The prototype's bet is that the session should stop being the thing the user manages.
 
-A connector does not remove the binding. The loop is still synchronous, unrelated tasks still collide in one session, and the agent stops when the laptop sleeps. Their alternative, a Super-agent, keeps context across channels, runs several tasks without mixing them, acts on events, and stays up. They want it continuous, efficient, proactive, and persistent, and they argue one ReAct loop cannot be all four. The chat API glued the product to the context window. That glue is the bottleneck.
+Its own [philosophy](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/000-philosophy.md) states the objective in one line: take as little human attention as possible, and give as much value as possible. The agent acts only when asked, or when a written rule allows it, and it speaks only when a person must act or can use a result. A connector on a local loop does not get you there. The loop is still synchronous, and the agent stops when the machine sleeps. The chat API glued the product to the context window. That glue is the bottleneck.
 
 ## How the design is split
 
-Five mechanisms carry the four properties. The diagram is mine, condensed from their sections 2 through 6.
+The diagram is mine. It follows the domain model, not a figure from the repository.
 
 ```mermaid
 flowchart TB
-  events[Channel events] --> filter[Two-level filter]
-  filter -->|candidate| router[Resident Router]
-  filter -->|noise| quiet[Stay quiet]
-  router -->|cold start| worker[Isolated Workers]
-  worker -->|subscribe a Thread| fast[Direct fan-out]
-  fast --> worker
-  worker -->|status only| router
-  router -->|one voice| people[IM, GitHub, mail]
-  worker --> env[Tools and machines]
-  watch[External Watchdog] -.-> router
-  watch -.-> worker
+  events[GitHub or Feishu events] --> source[Source]
+  source --> thread[Thread]
+  thread -->|unsubscribed batch| eval[Eval: gate then model]
+  thread -->|subscribed| ticket[Ticket]
+  eval -->|accept with Mandate| ticket
+  eval -->|ignore| quiet[Stay quiet]
+  ticket -->|Assignment| worker[Executor session]
+  worker -->|report| ticket
+  ticket -->|Channel| people[The original conversation]
+  worker --> dir[One directory per Ticket]
 ```
 
-**Router and workers.** One shared session is continuous and slow, and it mixes unrelated tasks. A new session per event is concurrent and forgetful, and several sessions answering at once is noise. Their split puts a resident Router on human contact, cross-task decisions, and memory, and puts execution in workers that are context-isolated, hold the real tools, and do not speak to the user. Workers report status upward. The Router is the only voice, and they suggest it may not even have a shell. A lighter model can sit on the Router; the worker, because it writes the artifact, wants the strongest model. A worker may itself spawn subagents. The Router does not have to know.
+**Router and workers.** In the [domain model](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/001-domain.md) the main session is the orchestrator. It evaluates triggers, accepts work, and replies. The executor session is the worker: one session and one directory per ticket, outside the domain, reached only through an Assignment. Workers do not own the conversation. Results go back through a Channel on the thread, which is how a pull request or a topic reply stays in the place the person already is. A worker can be handed off or resumed. The ticket keeps its own state instead of following the session, so the session is replaceable and the work is not.
 
-This is not an agent team. A team lead plans inside one task. The Router only dispatches between tasks. Prompting a lead to refuse the work rebuilds the shape by instruction, and they would rather it be structural, because prompts slip.
+This is not an agent team. A team lead plans inside one task. Here the main session decides whether new work starts, continues, or stops, and the executor does the task. Prompting a single chat to "delegate when appropriate" rebuilds that split by instruction. The prototype makes it structural: subscription fan-out does not go through Eval at all.
 
-**Events, then a cache.** The driving input is a Trigger: a chat message, a mail, a review comment, a CI result. Most of that stream is noise, so a large model should not see all of it. Deterministic code filters on source, scope, and allow-lists. Candidates reach a model, which judges them against a policy written as a prompt. After a worker exists, later events on the same Thread — one pull request, one topic, one mail chain — go straight to subscribers. The Router still observes the stream, but it is not on the forwarding path for work it has already assigned. Subscriptions are many-to-many, which is how two workers on one pull request notice each other without a private channel.
+**Events, then a judgment.** A Source turns GitHub or Feishu into Triggers. A Trigger belongs to one or more Threads. Eval runs on a batch, one thread at a time, and triggers that arrive while it runs are merged into the next batch. The first layer is a gate: who may originate work, in that source's own identities, and with what strength. The second layer is the model's assessment against a versioned Policy. The outputs are small: accept, stop, ignore, or unavailable. An accept creates a Ticket and an immutable Mandate. A wider scope is a new ticket, not a silent expansion.
 
-The window is then the scarce resource. Their phrase is that wasting it wastes the model's intelligence. Inline keeps the likely-next fact in the window: an id, a short snippet, a neighboring message. Spill leaves the rest outside, with a handle. Done consistently, that is chain of recall: each recalled object inlines the ids of the next hop, so a Router can walk from a message to a thread to a worker to another review without holding every history. I read this as cache policy.
+Once a ticket is subscribed to a thread, later triggers fan out to it with no second evaluation. A person's message on that thread can resume an ended ticket under the same mandate. Bot and CI noise does not. That is the fast path. The main session stays on the slow path: new work, and threads nobody has claimed. Subscriptions are many-to-many, held by the thread. Two tickets can hear the same pull request without talking to each other. Correlation between threads adds context and is explicitly not allowed to route.
 
-**Asynchrony, channels, machines, watchdog.** A classical tool call blocks until it returns. They want `start()` and `stop()`: the loop hears "started," the result returns later as an event, and a new human message is handled at the next step. They say this asynchronous loop exists in DeepSeek Harness and is not on by default. Worker traces stay inside the worker. On IM they want rare, short messages; one rule they report as useful is a cap of 100 words. On GitHub or mail they want a structured artifact.
+**The window as a budget.** The prototype does not spell out a cache calculus in those words. What it does say is which facts are allowed into an executor. A subscription delivers triggers as context. A thread the executor follows for background does not grant authority and does not resume the ticket. Policy changes that bear on a live ticket are delivered; they do not revoke the mandate. I read that as the same discipline: put the next fact in the window, leave the rest as an id the model can pull. Wasting the window still wastes the model. The design just enforces the boundary in types instead of in a prompt.
 
-A local agent also ties the loop, the log, and the toolchain to one device. They separate them. The loop runs in stateless cloud compute; session state lives in a database; the heavy environment stays put, including a laptop with uncommitted edits, and a small daemon only runs commands and returns results. They compare this to Anthropic's "decoupling the brain from the hands," and they note the difference: that discussion is about hosted sandboxes and customer VPCs, while theirs starts from machines that sleep. A separate Watchdog session, woken by a timer, is the external control loop. It is asked not only whether a process is up, but whether a worker is making progress or has drifted. A maintainer can talk to it and change prompts or trigger rules.
-
-The prototype is a smaller dialect of the same split. Its [domain model](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/001-domain.md) names a main session as orchestrator and an executor session as worker: Eval is a gate plus a model assessment, an acceptance becomes a Ticket with a Mandate, and an Assignment binds that Ticket to one session and one directory. Subscription fan-out skips Eval. Sources are GitHub and, optionally, Feishu, for one repository. Its [philosophy](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/000-philosophy.md) is stricter than a slogan about being proactive: act only when asked or when a written rule allows it, and speak only when a person must act or can use a result.
+**Asynchrony and where the work runs.** [Execution](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/003-execution.md) moves a worker's foreground shell to a background job after five seconds, so the session can take a new message instead of blocking on a long command. The router preset keeps a smaller tool set. The heavy environment is the executor's directory and the variables that sources register, not a copy of the user's laptop rebuilt in a sandbox. The panel shows what is waiting on a person and stays empty when nothing is. That is the whole persistence story the prototype actually commits to: work items outlive a single shell call, and the person is interrupted only for a decision or a result.
 
 ## What is actually new
 
-Fast and slow paths, speculative execution, separating compute from storage, and an outside watchdog are old systems ideas. The essay says so. What is worth keeping is the composition: the user no longer manages sessions, the coordinator is not allowed to do the work, and a fast path keeps that coordinator off the hot path.
+Fast paths, batched evaluation, and a worker that does not own the chat are old systems ideas. What is worth keeping is the composition. The user is not asked to manage sessions. The orchestrator is not the one writing the patch. A subscription, not another model call, carries the rest of a thread.
 
-Section 7 is their evidence, and it is preliminary: a synthetic stream of about 300 messages, about 20 of them work requests, coding replaced by a tool that only spends time, five runs each. They report a median of 12.4 minutes and a 95th percentile of 15.7 minutes for the Super-agent. A single session with a subagent tool often just did the work. Under a neutral prompt it never delegated in five runs, and the 95th percentile reached 29.5 minutes. A prompt that preferred delegation helped on four of five runs and still left a long tail. Dropping direct subscription barely changed completion time, but raised Router decisions by about 30 percent and read-cache tokens from 23.23 million to 31.77 million. A separate Router test, workers mocked, moved arrivals from about one trigger a minute to about forty: mean batch 1.0 to 2.8, request time 2.5 to 3.9 seconds, time per decision 6.4 to 1.6 seconds. I have not reproduced this. The point they stress is enough: if delegation is only a suggestion, the model often ignores it.
+The costs are in that split, even without a benchmark. More sessions mean more cached context and a stabler schedule. Fan-out saves the orchestrator from re-deciding events it has already assigned; it does not, by itself, make the patch better. Batching helps only while one evaluation can still read a pile of triggers. The domain model already says a thread runs one Eval at a time and folds arrivals into the next batch. Past some arrival rate, that batch is a long input the model has to get right. Splitting the orchestrator to buy throughput would spend the global view the design exists to protect. The repository does not do that split.
 
-The costs sit in the same numbers. More sessions buy a stabler schedule and spend more cached tokens. On this load the fast path saves the Router tokens; it does not make the task better. Batching works only while the model can still read a pile of triggers, and they name context length and that accuracy as the ceiling. Sharding the Router, their next step when one session is not enough, spends the global memory the design exists to protect.
-
-The failures follow from the same choices. Shared-thread subscriptions miss a conflict that never becomes an event. Speculative repair saves attention only while the agent stays silent; if it does not, it is noise, which the philosophy doc treats as fatal. The watchdog is another model with tools, so it can misread "no progress," and whoever can reach it can change the system. Section 8.4 refuses a happy ending: a cloud loop plus device daemons assumes mutual trust. Prompt injection or a server compromise then reaches every connected machine, and a credential in context can leak during ordinary use. They want the model to use a credential without seeing it. Until then, they keep the system in a small trusted scope.
+The failures follow from the same choices. Two tickets hear a conflict only if it shows up as a trigger on a thread they share. Speculative work saves attention only while the agent stays silent, and the philosophy doc treats noise as a bug: if the agent is noisy, shorten the prompt or pause it, do not add messages to explain the noise. Authorization is a mandate, not a vibe. The model does not get to declare that a person told it to stop; only Eval decides how strong an ending is. A credential that reaches the context can still leave in a normal tool call. The prototype does not pretend to have solved that. It narrows the blast radius: one repository, an allow-list per source, proactive work recorded before it is allowed to act.
 
 ## What I would change in training
 
 These are opinions from foundation-model work on video understanding. They are not a claim about what DeepSeek is training.
 
-The harness is a policy, and most agent traces do not contain it. A ReAct log teaches a model to continue. This design also needs it to refuse, dispatch, and stay quiet. If post-training data is only successful tool traces, we keep building the agent that, in their ablation, does not delegate. I would keep the negative decisions: triggers the fast path dropped, tickets ignored, reports not worth showing. Those are the product.
+The harness is a policy, and most agent traces do not contain it. A ReAct log teaches a model to continue. This design also needs it to refuse, dispatch, and stay quiet. If post-training data is only successful tool traces, we keep building the agent that does the work in the main session because nobody structured the alternative. I would keep the negative decisions: triggers the gate dropped, evaluations that returned ignore, reports not worth showing. Those are the product.
 
-Mid-training is where inline and spill either stick or fight the model. Their Router batch is a long input and a short output, so context length still matters, but the skill is knowing what to leave outside. Chain of recall is not month-scale memory; the essay already says so.
+Mid-training is where that selectivity either sticks or fights the model. A router batch is a long input and a short decision, so context length still matters, but the skill is knowing what the mandate does not include. A subscription that adds context without adding authority is a useful training target: the model has to read the extra thread and not treat it as permission.
 
 For tool-use reinforcement learning I would not score only task success. The prototype's objective is attention. A fix that also pings a channel three times is a worse policy than a slower run that posts one pull request. The people who pay are outside the rollout, which makes the reward awkward. It is still the objective the system is built around.
 
-The essay's triggers are text. A video or a meeting is not a message with an allow-list. I do not think that retires the two-layer split. It changes the fast path. Code can still drop events by source, but "is this frame worth an expensive model" is a perception problem, so the fast path has to be a cheap model, or a cheap head of the same omni model. I would let the harness speculate on text and on short clips tied to an explicit thread, and require a stronger signal before a full visual pass.
+The prototype's triggers are GitHub and Feishu events. A video or a meeting is not a message with an allow-list. I do not think that retires the split between Eval and the executor. It changes the gate. Code can still drop events by source, but "is this frame worth an expensive model" is a perception problem, so the fast path has to be a cheap model, or a cheap head of the same omni model. I would let the harness speculate on text and on short clips tied to an explicit thread, and require a stronger signal before a full visual pass.
 
-"Workers do not talk" is the rule I expect to break first once agents share video and documents rather than a GitHub thread. The essay already treats direct worker communication as an open choice when coupling rises. I would not add a chat channel by default. I would pass a typed artifact — a clip id, a caption, a mandate — that the Router can inline, so workers share a reference instead of a conversation. That is a preference, and it is inline-and-spill applied to modalities the essay does not discuss.
+Workers that only share a thread will not be enough once one of them is watching video and another is editing a document. I would not add a chat channel between them by default. I would pass a typed artifact — a clip id, a caption, a mandate — that the orchestrator can inline, so they share a reference instead of a conversation. That is a preference. It is the same boundary the domain model already draws between context and authority, applied to modalities this repository does not implement.
 
 ## What is still open
 
-Their section 8 already asks when to shard the Router, how a person steps in once the session is not the interface, how instances talk across permission boundaries, and how credentials stay out of context. From training, "stay quiet" has no natural label: a miss and a lucky silence look the same. A video stream also has no obvious Thread, so a bad definition either floods workers or hides the event that mattered.
+The prototype leaves the scaling questions open by being small on purpose: one repository, sources that do not map identities to each other, no long-term memory beyond tickets and threads. From training, "stay quiet" has no natural label. A missed request and a lucky silence look the same unless someone marks them. A video stream also has no obvious Thread. Define threads badly and the fast path either floods the workers or hides the event that mattered.
 
-The point I want to keep is narrow. The session is an implementation detail, and a harness that leaves delegation to the model's mood will not get it. Most of the machinery is classical. What should change training is the policy around attention: what the model is allowed to see, when it must be silent, and which of those decisions are worth learning. The public prototype is a place to read that policy. On its authors' own account, it is not the system the essay describes.
+The point I want to keep is narrow. The session is an implementation detail, and a harness that leaves delegation to the model's mood will not get it. Most of the machinery is classical. What should change training is the policy around attention: what the model is allowed to see, when it must be silent, and which of those decisions are worth learning. This repository is a place to read that policy. It is not, on its own account, a finished agent.
+
+## References
+
+[deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype)

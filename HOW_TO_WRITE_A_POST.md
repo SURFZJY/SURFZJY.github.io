@@ -2,7 +2,7 @@
 
 站点源码在 `main` 分支。写完后提交到 `main`，GitHub Actions 会自动构建并发布到 `gh-pages`。不要直接改 `gh-pages` 分支。
 
-示例文章是 `_posts/2026-11-04-hello-world.md`。不需要它可以整篇删掉。
+文件名例子：`2026-11-04-superagent-harness-notes.md`，对应地址 `/blog/2026/superagent-harness-notes/`。
 
 ## 新建文件
 
