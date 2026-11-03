@@ -51,6 +51,11 @@ latest_posts:
   }
 </style>
 
-Researcher at TikTok (Sydney, Australia), 2024–present. Previously a researcher at ByteDance. M.S., Institute of Automation, Chinese Academy of Sciences (CASIA), 2017–2020.
+I am a researcher at TikTok in Sydney, Australia, working on multimodal large language models. I received my M.S. from the Institute of Automation, Chinese Academy of Sciences (CASIA) in 2020, then joined ByteDance AI Lab in Shanghai, where I worked from 2020 to 2024 before moving to TikTok Sydney in 2024.
 
-Research interests include multimodal large language models (MLLMs), long-video understanding, efficient and sparse attention, hallucination evaluation, and data annotation.
+My research interests include:
+
+- **Multimodal large language models** and **long-video understanding**
+- **Efficient architectures**, such as sparse and efficient attention for long-context MLLMs
+- **Agentic systems**, including multimodal agents and multi-agent collaboration
+- **Evaluation and alignment of foundation models**, e.g. reliable benchmarking and hallucination analysis for MLLMs
