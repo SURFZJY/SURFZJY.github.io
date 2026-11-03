@@ -4,7 +4,7 @@ cv:
   location: Sydney, Australia
   website: https://scholar.google.com/citations?user=mpE3Y4EAAAAJ
   summary: >
-    Researcher on the Foundation Model Team at TikTok in Sydney, Australia (2024–present), working on foundation models for video content understanding.
+    Researcher on the Foundation Model Team at TikTok, Sydney (2024–present), developing multimodal and omni-modal large language models for video understanding.
     M.S., Institute of Automation, Chinese Academy of Sciences (CASIA), 2020.
     ByteDance AI Lab, Shanghai, 2020–2024.
 
@@ -25,10 +25,10 @@ cv:
         location: Sydney, Australia
         start_date: 2024
         end_date: present
-        summary: Foundation models for video content understanding, with a focus on visual perception and understanding.
+        summary: Multimodal and omni-modal large language models for video understanding.
         highlights:
-          - "Core multimodal capabilities: multilingual OCR, video captioning, and omni-modal (Omni) MLLMs for content understanding."
-          - "Full model development pipeline, from pre-training and mid-training to post-training."
+          - "Core multimodal capabilities at TikTok scale: multilingual OCR, dense video captioning, and general-purpose and omni-modal foundation models."
+          - "Training lifecycle from large-scale pre-training to post-training and alignment."
       - company: ByteDance AI Lab
         position: Researcher
         location: Shanghai, China
