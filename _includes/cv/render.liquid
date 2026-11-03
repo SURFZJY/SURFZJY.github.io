@@ -36,15 +36,6 @@
 
   <article>
     <div class="cv">
-      {% if site.data.socials.email %}
-        <div class="card mt-3 p-3">
-          <h3 class="card-title font-weight-medium">Contact</h3>
-          <p class="mb-0">
-            <a href="mailto:{{ site.data.socials.email }}">{{ site.data.socials.email }}</a>
-          </p>
-        </div>
-      {% endif %}
-
       {% comment %} Determine which CV format to render {% endcomment %}
       {% assign render_rendercv = false %}
       {% assign render_jsonresume = false %}
@@ -83,10 +74,13 @@
                   <td class="p-1 pl-2 font-weight-light">{{ cv.label }}</td>
                 </tr>
               {% endif %}
-              {% if cv.email %}
+              {% assign contact_email = cv.email | default: site.data.socials.email %}
+              {% if contact_email %}
                 <tr>
                   <td class="p-1 pr-2 font-weight-bold"><b>Email</b></td>
-                  <td class="p-1 pl-2 font-weight-light">{{ cv.email }}</td>
+                  <td class="p-1 pl-2 font-weight-light">
+                    <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>
+                  </td>
                 </tr>
               {% endif %}
               {% if cv.phone %}
