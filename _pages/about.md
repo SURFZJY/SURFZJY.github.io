@@ -49,6 +49,18 @@ latest_posts:
     color: var(--global-text-color-light);
     text-align: center;
   }
+
+  .clearfix > ul {
+    margin: 0 0 1rem;
+    padding-left: 1.15em;
+    list-style: disc outside;
+  }
+
+  .clearfix > ul > li {
+    margin: 0;
+    padding: 0.2em 0 0.2em 0.35em;
+    line-height: 1.5;
+  }
 </style>
 
 I am a researcher on the Foundation Model Team at TikTok, Sydney, where I develop multimodal and omni-modal large language models for video understanding. My work spans the core multimodal capabilities that power content understanding at TikTok scale, from multilingual OCR and dense video captioning to general-purpose and omni-modal foundation models. I have contributed across the entire training lifecycle, from large-scale pre-training to post-training and alignment.
