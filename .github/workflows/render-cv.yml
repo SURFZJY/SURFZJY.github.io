@@ -16,6 +16,9 @@ permissions:
 jobs:
   rendercv:
     name: RenderCV
+    # The starter CV example targets an older RenderCV schema. This site's
+    # `_data/cv.yml` is rendered as HTML by al_folio_cv; skip the PDF job here.
+    if: github.repository == 'alshedivat/al-folio'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

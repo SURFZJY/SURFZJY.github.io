@@ -35,6 +35,7 @@ on:
 
 jobs:
   lighthouse-badger-easy:
+    if: github.repository == 'alshedivat/al-folio'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
