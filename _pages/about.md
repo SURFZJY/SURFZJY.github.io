@@ -28,6 +28,27 @@ latest_posts:
   .publications .author > em {
     font-weight: 700;
   }
+
+  .profile .more-info {
+    width: 100%;
+    margin-top: 0.75rem;
+    font-family: Roboto, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--global-text-color-light);
+    text-align: center;
+  }
+
+  .profile .more-info p {
+    display: block;
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: var(--global-text-color-light);
+    text-align: center;
+  }
 </style>
 
 Researcher at TikTok (Sydney, Australia), 2024–present. Previously a researcher at ByteDance. M.S., Institute of Automation, Chinese Academy of Sciences (CASIA), 2017–2020.
