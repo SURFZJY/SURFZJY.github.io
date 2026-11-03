@@ -10,8 +10,6 @@ tags:
   - harness
 categories:
   - research
-mermaid:
-  enabled: true
 ---
 
 I have been reading [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype) as a design, not as a product. The README is plain about the status: research code, not an official DeepSeek release, adapted for publication, and not identical to whatever runs internally. Some ideas around it are future work. What is in the tree is already enough to argue with. It is a proactive coding agent for one GitHub repository, with optional Feishu, that opens a work item, does the work in its own session and directory, and answers in the conversation where the request was made.
@@ -26,19 +24,7 @@ Its own [philosophy](https://github.com/deepseek-ai/dsh-superagent-prototype/blo
 
 The diagram is mine. It follows the domain model, not a figure from the repository.
 
-```mermaid
-flowchart TB
-  events[GitHub or Feishu events] --> source[Source]
-  source --> thread[Thread]
-  thread -->|unsubscribed batch| eval[Eval: gate then model]
-  thread -->|subscribed| ticket[Ticket]
-  eval -->|accept with Mandate| ticket
-  eval -->|ignore| quiet[Stay quiet]
-  ticket -->|Assignment| worker[Executor session]
-  worker -->|report| ticket
-  ticket -->|Channel| people[The original conversation]
-  worker --> dir[One directory per Ticket]
-```
+<img src="{{ '/assets/img/blog/superagent-harness-diagram.svg' | relative_url }}" alt="Super-agent harness: intake, decide, execute; fast path for subscribed threads, slow path through Eval" width="1600" height="1000" style="display: block; width: 100%; max-width: 100%; height: auto;" />
 
 **Router and workers.** In the [domain model](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/001-domain.md) the main session is the orchestrator. It evaluates triggers, accepts work, and replies. The executor session is the worker: one session and one directory per ticket, outside the domain, reached only through an Assignment. Workers do not own the conversation. Results go back through a Channel on the thread, which is how a pull request or a topic reply stays in the place the person already is. A worker can be handed off or resumed. The ticket keeps its own state instead of following the session, so the session is replaceable and the work is not.
 
