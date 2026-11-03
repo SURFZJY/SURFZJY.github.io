@@ -1,0 +1,149 @@
+<!DOCTYPE html> <html lang="en"> <head> <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"> <meta charset="utf-8"> <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"> <meta http-equiv="X-UA-Compatible" content="IE=edge"> <title> The Session Should Not Be the Product | Jiyuan Zhang </title> <meta name="author" content="Jiyuan Zhang"> <meta name="description" content="A reading of the DeepSeek Harness Super-agent essay, kept separate from the narrower public prototype, and what the design suggests for training multimodal agents."> <meta name="keywords" content="Jiyuan Zhang, multimodal large language models, long-video understanding, sparse attention"> <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' data: https:; media-src 'self' https:; frame-src 'self' https:; connect-src 'self' https:;"> <style>
+  :root {
+    --max-content-width: 930px;
+  }
+</style> <link rel="stylesheet" href="/assets/css/tailwind.css?v=50c64c15cbb9fd1ce6056fdb8bcb4b62"> <link defer rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css" integrity="sha256-MVopmdyC2tYTiJ8wlktf0uh0v4NgT+vNdyVFepi7Q0c=" crossorigin="anonymous"> <link defer rel="stylesheet" href="https://cdn.jsdelivr.net/npm/academicons@1.9.5/css/academicons.min.css" integrity="sha256-SzrCOBJbGVFMahewkgjwnApaV2+av1DwMAA+/QGLyZw=" crossorigin="anonymous"> <link defer rel="stylesheet" href="https://cdn.jsdelivr.net/npm/scholar-icons@1.0.3/css/scholar-icons.css" integrity="sha256-VY3hHVj/hNX3fYG6wtbA6TcKJQl7+FthzGSyIB64klY=" crossorigin="anonymous"> <link defer rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700|Roboto+Slab:100,300,400,500,700|Material+Icons&amp;display=swap"> <link defer rel="stylesheet" href="/assets/css/jekyll-pygments-themes-github.css?v=591dab5a4e56573bf4ef7fd332894c99" media="" id="highlight_theme_light"> <link rel="shortcut icon" href="/assets/img/prof_pic.jpg?v=aaa6ba4b62bf6d97505aba172d455da8"> <link rel="apple-touch-icon" href="/assets/img/prof_pic.jpg?v=aaa6ba4b62bf6d97505aba172d455da8"> <link rel="stylesheet" href="/assets/css/main.css?v=3116ba77db9ee1581d05bb3e86fbf7f1"> <link rel="canonical" href="https://surfzjy.github.io/blog/2026/superagent-harness-notes/"> <script src="/assets/js/theme.js?v=5286c3e4c334d0ecb8fc0c40ff4fa7ec"></script> <link defer rel="stylesheet" href="/assets/css/jekyll-pygments-themes-native.css?v=5847e5ed4a4568527aa6cfab446049ca" media="none" id="highlight_theme_dark"> <script>
+    initTheme();
+  </script> </head> <body class="fixed-top-nav "> <header> <nav id="navbar" class="navbar navbar-light navbar-expand-sm fixed-top" role="navigation"> <div class="container"> <a class="navbar-brand title font-weight-lighter" href="/"> <span class="font-weight-bold">Jiyuan</span> Zhang </a> <button class="navbar-toggler collapsed navbar-toggler-main" type="button" data-nav-toggle="navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation"> <span class="sr-only">Toggle navigation</span> <span class="icon-bar top-bar"></span> <span class="icon-bar middle-bar"></span> <span class="icon-bar bottom-bar"></span> </button> <div class="collapse navbar-collapse navbar-collapse-main" id="navbarNav"> <ul class="navbar-nav navbar-menu-list flex-nowrap"> <li class="nav-item "> <a class="nav-link" href="/">About </a> </li> <li class="nav-item active"> <a class="nav-link" href="/blog/">Blog </a> </li> <li class="nav-item "> <a class="nav-link" href="/publications/">Publications </a> </li> <li class="nav-item "> <a class="nav-link" href="/cv/">CV </a> </li> <li class="nav-item"> <button id="search-toggle" type="button" title="Search" aria-label="Open search"> <span class="nav-link">ctrl k <i class="fa-solid fa-magnifying-glass"></i></span> </button> </li> <li class="toggle-container"> <button id="light-toggle" type="button" title="Change theme" aria-label="Change color theme"> <i class="fa-half-sun-moon" id="light-toggle-system"></i> <i class="fa-solid fa-moon" id="light-toggle-dark"></i> <i class="fa-solid fa-sun" id="light-toggle-light"></i> </button> </li> </ul> </div> </div> </nav> <progress id="progress" value="0"> <div class="progress-container"> <span class="progress-bar"></span> </div> </progress> </header> <div class="container mt-5" role="main"> <div class="post"> <header class="post-header"> <h1 class="post-title">The Session Should Not Be the Product</h1> <p class="post-meta"> Created on November 04, 2026 </p> <p class="post-tags"> <a href="/blog/2026"> <i class="fa-solid fa-calendar fa-sm"></i> 2026 </a>   ·   <a href="/blog/tag/agents"> <i class="fa-solid fa-hashtag fa-sm"></i> agents</a>   <a href="/blog/tag/multi-agent"> <i class="fa-solid fa-hashtag fa-sm"></i> multi-agent</a>   <a href="/blog/tag/llm"> <i class="fa-solid fa-hashtag fa-sm"></i> llm</a>   <a href="/blog/tag/harness"> <i class="fa-solid fa-hashtag fa-sm"></i> harness</a>   ·   <a href="/blog/category/research"> <i class="fa-solid fa-tag fa-sm"></i> research</a> </p> </header> <article class="post-content"> <div id="markdown-content"> <p>This is a reading, not a translation. Yujia Qiao and the DeepSeek Harness team wrote the architecture. I read it in Guo Qiang’s full reprint, <a href="https://guobug.github.io/posts/2026/11/01/deepseek-harness-super-agent-architecture/?lang=en" rel="external nofollow noopener" target="_blank">面向工程实践的架构思路探讨：DeepSeek Super-agent 系统架构</a>, which says the text is reproduced without cuts or added commentary. The essay is an engineering argument, not a product description. The public code, <a href="https://github.com/deepseek-ai/dsh-superagent-prototype" rel="external nofollow noopener" target="_blank">deepseek-ai/dsh-superagent-prototype</a>, is narrower: its README says it was adapted for publication, is not the internal system, and that some designs in the essay are future work. Below, the essay is the architecture and the repository is a prototype.</p> <h2 id="what-the-harness-is-for">What the harness is for</h2> <p>A model with tools can finish a hard task with less step-by-step steering. The essay asks what breaks when that is a whole working day. Work is still a session, and sessions do not share context. The authors say a person can actively follow only about three to five. The ceiling on one task is the model. The ceiling on many tasks is attention.</p> <p>A connector does not remove the binding. The loop is still synchronous, unrelated tasks still collide in one session, and the agent stops when the laptop sleeps. Their alternative, a Super-agent, keeps context across channels, runs several tasks without mixing them, acts on events, and stays up. They want it continuous, efficient, proactive, and persistent, and they argue one ReAct loop cannot be all four. The chat API glued the product to the context window. That glue is the bottleneck.</p> <h2 id="how-the-design-is-split">How the design is split</h2> <p>Five mechanisms carry the four properties. The diagram is mine, condensed from their sections 2 through 6.</p> <pre><code class="language-mermaid">flowchart TB
+  events[Channel events] --&gt; filter[Two-level filter]
+  filter --&gt;|candidate| router[Resident Router]
+  filter --&gt;|noise| quiet[Stay quiet]
+  router --&gt;|cold start| worker[Isolated Workers]
+  worker --&gt;|subscribe a Thread| fast[Direct fan-out]
+  fast --&gt; worker
+  worker --&gt;|status only| router
+  router --&gt;|one voice| people[IM, GitHub, mail]
+  worker --&gt; env[Tools and machines]
+  watch[External Watchdog] -.-&gt; router
+  watch -.-&gt; worker
+</code></pre> <p><strong>Router and workers.</strong> One shared session is continuous and slow, and it mixes unrelated tasks. A new session per event is concurrent and forgetful, and several sessions answering at once is noise. Their split puts a resident Router on human contact, cross-task decisions, and memory, and puts execution in workers that are context-isolated, hold the real tools, and do not speak to the user. Workers report status upward. The Router is the only voice, and they suggest it may not even have a shell. A lighter model can sit on the Router; the worker, because it writes the artifact, wants the strongest model. A worker may itself spawn subagents. The Router does not have to know.</p> <p>This is not an agent team. A team lead plans inside one task. The Router only dispatches between tasks. Prompting a lead to refuse the work rebuilds the shape by instruction, and they would rather it be structural, because prompts slip.</p> <p><strong>Events, then a cache.</strong> The driving input is a Trigger: a chat message, a mail, a review comment, a CI result. Most of that stream is noise, so a large model should not see all of it. Deterministic code filters on source, scope, and allow-lists. Candidates reach a model, which judges them against a policy written as a prompt. After a worker exists, later events on the same Thread — one pull request, one topic, one mail chain — go straight to subscribers. The Router still observes the stream, but it is not on the forwarding path for work it has already assigned. Subscriptions are many-to-many, which is how two workers on one pull request notice each other without a private channel.</p> <p>The window is then the scarce resource. Their phrase is that wasting it wastes the model’s intelligence. Inline keeps the likely-next fact in the window: an id, a short snippet, a neighboring message. Spill leaves the rest outside, with a handle. Done consistently, that is chain of recall: each recalled object inlines the ids of the next hop, so a Router can walk from a message to a thread to a worker to another review without holding every history. I read this as cache policy.</p> <p><strong>Asynchrony, channels, machines, watchdog.</strong> A classical tool call blocks until it returns. They want <code class="language-plaintext highlighter-rouge">start()</code> and <code class="language-plaintext highlighter-rouge">stop()</code>: the loop hears “started,” the result returns later as an event, and a new human message is handled at the next step. They say this asynchronous loop exists in DeepSeek Harness and is not on by default. Worker traces stay inside the worker. On IM they want rare, short messages; one rule they report as useful is a cap of 100 words. On GitHub or mail they want a structured artifact.</p> <p>A local agent also ties the loop, the log, and the toolchain to one device. They separate them. The loop runs in stateless cloud compute; session state lives in a database; the heavy environment stays put, including a laptop with uncommitted edits, and a small daemon only runs commands and returns results. They compare this to Anthropic’s “decoupling the brain from the hands,” and they note the difference: that discussion is about hosted sandboxes and customer VPCs, while theirs starts from machines that sleep. A separate Watchdog session, woken by a timer, is the external control loop. It is asked not only whether a process is up, but whether a worker is making progress or has drifted. A maintainer can talk to it and change prompts or trigger rules.</p> <p>The prototype is a smaller dialect of the same split. Its <a href="https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/001-domain.md" rel="external nofollow noopener" target="_blank">domain model</a> names a main session as orchestrator and an executor session as worker: Eval is a gate plus a model assessment, an acceptance becomes a Ticket with a Mandate, and an Assignment binds that Ticket to one session and one directory. Subscription fan-out skips Eval. Sources are GitHub and, optionally, Feishu, for one repository. Its <a href="https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/000-philosophy.md" rel="external nofollow noopener" target="_blank">philosophy</a> is stricter than a slogan about being proactive: act only when asked or when a written rule allows it, and speak only when a person must act or can use a result.</p> <h2 id="what-is-actually-new">What is actually new</h2> <p>Fast and slow paths, speculative execution, separating compute from storage, and an outside watchdog are old systems ideas. The essay says so. What is worth keeping is the composition: the user no longer manages sessions, the coordinator is not allowed to do the work, and a fast path keeps that coordinator off the hot path.</p> <p>Section 7 is their evidence, and it is preliminary: a synthetic stream of about 300 messages, about 20 of them work requests, coding replaced by a tool that only spends time, five runs each. They report a median of 12.4 minutes and a 95th percentile of 15.7 minutes for the Super-agent. A single session with a subagent tool often just did the work. Under a neutral prompt it never delegated in five runs, and the 95th percentile reached 29.5 minutes. A prompt that preferred delegation helped on four of five runs and still left a long tail. Dropping direct subscription barely changed completion time, but raised Router decisions by about 30 percent and read-cache tokens from 23.23 million to 31.77 million. A separate Router test, workers mocked, moved arrivals from about one trigger a minute to about forty: mean batch 1.0 to 2.8, request time 2.5 to 3.9 seconds, time per decision 6.4 to 1.6 seconds. I have not reproduced this. The point they stress is enough: if delegation is only a suggestion, the model often ignores it.</p> <p>The costs sit in the same numbers. More sessions buy a stabler schedule and spend more cached tokens. On this load the fast path saves the Router tokens; it does not make the task better. Batching works only while the model can still read a pile of triggers, and they name context length and that accuracy as the ceiling. Sharding the Router, their next step when one session is not enough, spends the global memory the design exists to protect.</p> <p>The failures follow from the same choices. Shared-thread subscriptions miss a conflict that never becomes an event. Speculative repair saves attention only while the agent stays silent; if it does not, it is noise, which the philosophy doc treats as fatal. The watchdog is another model with tools, so it can misread “no progress,” and whoever can reach it can change the system. Section 8.4 refuses a happy ending: a cloud loop plus device daemons assumes mutual trust. Prompt injection or a server compromise then reaches every connected machine, and a credential in context can leak during ordinary use. They want the model to use a credential without seeing it. Until then, they keep the system in a small trusted scope.</p> <h2 id="what-i-would-change-in-training">What I would change in training</h2> <p>These are opinions from foundation-model work on video understanding. They are not a claim about what DeepSeek is training.</p> <p>The harness is a policy, and most agent traces do not contain it. A ReAct log teaches a model to continue. This design also needs it to refuse, dispatch, and stay quiet. If post-training data is only successful tool traces, we keep building the agent that, in their ablation, does not delegate. I would keep the negative decisions: triggers the fast path dropped, tickets ignored, reports not worth showing. Those are the product.</p> <p>Mid-training is where inline and spill either stick or fight the model. Their Router batch is a long input and a short output, so context length still matters, but the skill is knowing what to leave outside. Chain of recall is not month-scale memory; the essay already says so.</p> <p>For tool-use reinforcement learning I would not score only task success. The prototype’s objective is attention. A fix that also pings a channel three times is a worse policy than a slower run that posts one pull request. The people who pay are outside the rollout, which makes the reward awkward. It is still the objective the system is built around.</p> <p>The essay’s triggers are text. A video or a meeting is not a message with an allow-list. I do not think that retires the two-layer split. It changes the fast path. Code can still drop events by source, but “is this frame worth an expensive model” is a perception problem, so the fast path has to be a cheap model, or a cheap head of the same omni model. I would let the harness speculate on text and on short clips tied to an explicit thread, and require a stronger signal before a full visual pass.</p> <p>“Workers do not talk” is the rule I expect to break first once agents share video and documents rather than a GitHub thread. The essay already treats direct worker communication as an open choice when coupling rises. I would not add a chat channel by default. I would pass a typed artifact — a clip id, a caption, a mandate — that the Router can inline, so workers share a reference instead of a conversation. That is a preference, and it is inline-and-spill applied to modalities the essay does not discuss.</p> <h2 id="what-is-still-open">What is still open</h2> <p>Their section 8 already asks when to shard the Router, how a person steps in once the session is not the interface, how instances talk across permission boundaries, and how credentials stay out of context. From training, “stay quiet” has no natural label: a miss and a lucky silence look the same. A video stream also has no obvious Thread, so a bad definition either floods workers or hides the event that mattered.</p> <p>The point I want to keep is narrow. The session is an implementation detail, and a harness that leaves delegation to the model’s mood will not get it. Most of the machinery is classical. What should change training is the policy around attention: what the model is allowed to see, when it must be silent, and which of those decisions are worth learning. The public prototype is a place to read that policy. On its authors’ own account, it is not the system the essay describes.</p> </div> </article> <br> <hr> <br> <h2 class="text-3xl font-semibold mb-4 mt-12">Enjoy Reading This Article?</h2> <p class="mb-2">Here are some more articles you might like to read next:</p> <ul class="list-disc pl-7 my-3 space-y-2 marker:text-[var(--global-theme-color)]"> <li class="leading-relaxed"> <a class="underline decoration-1 hover:text-[var(--global-hover-color)]" href="/blog/2026/hello-world/">Hello, World</a> </li> </ul> </div> </div> <footer class="fixed-bottom" role="contentinfo"> <div class="container mt-0"> © Copyright 2026 Jiyuan Zhang. Powered by <a href="https://jekyllrb.com/" target="_blank" rel="external nofollow noopener">Jekyll</a> with <a href="https://github.com/alshedivat/al-folio" rel="external nofollow noopener" target="_blank">al-folio</a>. </div> </footer> <script>
+  window.alFolio = {
+    compatBootstrap: false
+  };
+</script> <script src="/assets/js/nav-toggle.js?v=141bd79a73ebc0f0b6ea58e440ae79fc"></script> <script defer src="https://cdn.jsdelivr.net/npm/masonry-layout@4.2.2/dist/masonry.pkgd.min.js" integrity="sha256-Nn1q/fx0H7SNLZMQ5Hw5JLaTRZp0yILA/FRexe19VdI=" crossorigin="anonymous"></script> <script defer src="https://cdn.jsdelivr.net/npm/imagesloaded@5.0.0/imagesloaded.pkgd.min.js" integrity="sha256-htrLFfZJ6v5udOG+3kNLINIKh2gvoKqwEhHYfTTMICc=" crossorigin="anonymous"></script> <script defer src="/assets/js/masonry.js?v=e49affc7bd2646f6acdad1dbe02c2359" type="text/javascript"></script> <script defer src="https://cdn.jsdelivr.net/npm/mermaid@10.7.0/dist/mermaid.min.js" integrity="sha256-TtLOdUA8mstPoO6sGvHIGx2ceXrrX4KgIItO06XOn8A=" crossorigin="anonymous"></script> <script defer src="/assets/al_charts/js/mermaid-setup.js" type="text/javascript"></script> <script defer type="text/javascript" id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js" integrity="sha256-MASABpB4tYktI2Oitl4t+78w/lyA+D7b/s9GEP0JOGI=" crossorigin="anonymous"></script> <script src="/assets/al_math/js/mathjax-setup.js"></script> <script src="/assets/js/tooltips-setup.js?v=fe487e99db6c43751e6e7bdb2d6a0611"></script> <script src="/assets/js/no_defer.js?v=53b1b1a645525975c963ce8bf8bfefcf"></script> <script defer src="/assets/js/common.js?v=87baac90f765f2f3362dcf6aaf312a8a"></script> <script defer src="/assets/js/copy_code.js?v=c8a01c11a92744d44b093fc3bda915df" type="text/javascript"></script> <script defer src="/assets/js/jupyter_new_tab.js?v=896d254890d9b47f0281f63bfccf0dee"></script> <script defer src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js" integrity="sha256-ZgMyDAIYDYGxbcpJcfUnYwNevG/xi9OHKaR/8GK+jWc=" crossorigin="anonymous"></script> <script defer src="/assets/al_img_tools/js/zoom.js"></script> <script defer src="/assets/js/progress-bar.js?v=499464c5c63ced6cf7ad62509f1e2610" type="text/javascript"></script> <script src="https://cdn.jsdelivr.net/npm/vanilla-back-to-top@7.2.1/dist/vanilla-back-to-top.min.js" integrity="sha256-uMJJ3EoTyfRBoTbR+lrfu1uRQ87RZG8AR3cVNuQVeFg=" crossorigin="anonymous"></script> <script>
+    addBackToTop();
+  </script> <script type="module" src="/assets/al_search/js/search/ninja-keys.min.js"></script> <ninja-keys hidebreadcrumbs noautoloadmdicons placeholder="Type to start searching"></ninja-keys> <script src="/assets/al_search/js/search-setup.js"></script> <script>
+// get the ninja-keys element
+const ninja = document.querySelector('ninja-keys');
+
+// add the home and posts menu items
+ninja.data = [{
+    id: "nav-about",
+    title: "About",
+    section: "Navigation",
+    handler: () => {
+      window.location.href = "/";
+    },
+  },{id: "nav-blog",
+          title: "Blog",
+          description: "Notes on multimodal and omni-modal language models.",
+          section: "Navigation",
+          handler: () => {
+            window.location.href = "/blog/";
+          },
+        },{id: "nav-publications",
+          title: "Publications",
+          description: "Papers in reverse chronological order.",
+          section: "Navigation",
+          handler: () => {
+            window.location.href = "/publications/";
+          },
+        },{id: "nav-cv",
+          title: "CV",
+          description: "",
+          section: "Navigation",
+          handler: () => {
+            window.location.href = "/cv/";
+          },
+        },{id: "post-the-session-should-not-be-the-product",
+        
+          title: "The Session Should Not Be the Product",
+        
+        description: "A reading of the DeepSeek Harness Super-agent essay, kept separate from the narrower public prototype, and what the design suggests for training multimodal agents.",
+        section: "Posts",
+        handler: () => {
+          
+            window.location.href = "/blog/2026/superagent-harness-notes/";
+          
+        },
+      },{id: "post-hello-world",
+        
+          title: "Hello, World",
+        
+        description: "A starter note. Safe to delete once real posts are here.",
+        section: "Posts",
+        handler: () => {
+          
+            window.location.href = "/blog/2026/hello-world/";
+          
+        },
+      },{id: "news-act-as-human-at-neurips-2025",
+          title: 'ACT as Human at NeurIPS 2025.',
+          description: "",
+          section: "News",},{id: "news-omnisparse-accepted-to-aaai-2026",
+          title: 'OmniSparse accepted to AAAI 2026.',
+          description: "",
+          section: "News",},{
+        id: 'social-email',
+        title: 'email',
+        section: 'Socials',
+        handler: () => {
+          window.open("mailto:%7A%68%61%6E%67%6A%69%79%75%61%6E%73%75%72%66@%67%6D%61%69%6C.%63%6F%6D", "_blank");
+        },
+      },{
+        id: 'social-github',
+        title: 'GitHub',
+        section: 'Socials',
+        handler: () => {
+          window.open("https://github.com/SURFZJY", "_blank");
+        },
+      },{
+        id: 'social-scholar',
+        title: 'Google Scholar',
+        section: 'Socials',
+        handler: () => {
+          window.open("https://scholar.google.com/citations?user=mpE3Y4EAAAAJ", "_blank");
+        },
+      },{
+        id: 'social-x',
+        title: 'X',
+        section: 'Socials',
+        handler: () => {
+          window.open("https://twitter.com/JoeyAtSydney", "_blank");
+        },
+      },{
+        id: 'social-openreview',
+        title: 'Openreview',
+        section: 'Socials',
+        handler: () => {
+          window.open("https://openreview.net/profile?id=~Jiyuan_Zhang4", "_blank");
+        },
+      },{
+      id: 'light-theme',
+      title: 'Change theme to light',
+      description: 'Change the theme of the site to Light',
+      section: 'Theme',
+      handler: () => {
+        setThemeSetting("light");
+      },
+    },
+    {
+      id: 'dark-theme',
+      title: 'Change theme to dark',
+      description: 'Change the theme of the site to Dark',
+      section: 'Theme',
+      handler: () => {
+        setThemeSetting("dark");
+      },
+    },
+    {
+      id: 'system-theme',
+      title: 'Use system default theme',
+      description: 'Change the theme of the site to System Default',
+      section: 'Theme',
+      handler: () => {
+        setThemeSetting("system");
+      },
+    },];
+
+</script> <script src="/assets/al_search/js/shortcut-key.js"></script> </body> </html>
