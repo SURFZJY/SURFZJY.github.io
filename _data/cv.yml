@@ -70,6 +70,33 @@ cv:
         releaseDate: 2025
         url: https://arxiv.org/abs/2511.09833
 
+      - title: "Exploring the Role of Explicit Temporal Modeling in Multimodal Large Language Models for Video Understanding"
+        authors:
+          - Yun Li
+          - Zhe Liu
+          - Yajing Kong
+          - Guangrui Li
+          - Jiyuan Zhang
+          - Chao Bian
+          - Feng Liu
+          - Lina Yao
+          - Zhenbang Sun
+        publisher: arXiv preprint
+        releaseDate: 2025
+        url: https://arxiv.org/abs/2501.16786
+
+      - title: "Effectively Enhancing Vision Language Large Models by Prompt Augmentation and Caption Utilization"
+        authors:
+          - Minyi Zhao
+          - Jie Wang
+          - Zhaoyang Li
+          - Jiyuan Zhang
+          - Zhenbang Sun
+          - Shuigeng Zhou
+        publisher: arXiv preprint
+        releaseDate: 2024
+        url: https://arxiv.org/abs/2409.14484
+
       - title: "CIEM: Contrastive Instruction Evaluation Method for Better Instruction Tuning"
         authors:
           - Hongyu Hu
